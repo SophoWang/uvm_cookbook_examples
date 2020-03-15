@@ -1,0 +1,81 @@
+#
+#------------------------------------------------------------------------------
+#   Copyright 2018 Mentor Graphics Corporation
+#   All Rights Reserved Worldwide
+#
+#   Licensed under the Apache License, Version 2.0 (the
+#   "License"); you may not use this file except in
+#   compliance with the License.  You may obtain a copy of
+#   the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in
+#   writing, software distributed under the License is
+#   distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+#   CONDITIONS OF ANY KIND, either express or implied.  See
+#   the License for the specific language governing
+#   permissions and limitations under the License.
+#------------------------------------------------------------------------------
+RTL ?= ../rtl
+AGENTS ?= ../agents
+PKG ?= ../../c_stimulus_pkg
+TAR_PATH ?= ../../../
+UVM_TB ?= ../uvm_tb
+
+COMP_OPTS += -full64
+COMP_OPTS += -sverilog
+COMP_OPTS += -ntb_opts uvm-1.2
+COMP_OPTS += -timescale=1ns/10ps
+COMP_OPTS += -l comp.log
+
+DEBUG_OPTS += -debug_all
+
+all: build run
+
+tarball: clean tar
+
+
+build:
+	vcs ${COMP_OPTS} ${DEBUG_OPTS} \
+		+incdir+$(PKG) $(PKG)/c_stimulus_pkg.sv \
+		+incdir+$(PKG) $(PKG)/isr_pkg.sv \
+		-y $(RTL)/spi/rtl/verilog +libext+.v \
+		+incdir+$(AGENTS)/apb_agent $(AGENTS)/apb_agent/apb_agent_pkg.sv \
+		+incdir+$(AGENTS)/spi_agent $(AGENTS)/spi_agent/spi_agent_pkg.sv \
+		+incdir+$(UVM_TB)/uvm_register_model $(UVM_TB)/uvm_register_model/spi_reg_pkg.sv \
+		$(AGENTS)/apb_agent/apb_if.sv \
+		$(AGENTS)/spi_agent/spi_if.sv \
+		$(UVM_TB)/tb/intr_if.sv \
+		+incdir+$(UVM_TB)/env $(UVM_TB)/env/spi_env_pkg.sv \
+		+incdir+$(UVM_TB)/sequences $(UVM_TB)/sequences/spi_bus_sequence_lib_pkg.sv \
+		+incdir+$(UVM_TB)/sequences $(UVM_TB)/sequences/spi_sequence_lib_pkg.sv \
+		+incdir+$(UVM_TB)/sequences $(UVM_TB)/sequences/spi_virtual_seq_lib_pkg.sv \
+		+incdir+$(UVM_TB)/test $(UVM_TB)/test/spi_test_lib_pkg.sv \
+		+incdir+$(RTL)/spi/rtl/verilog $(UVM_TB)/tb/top_tb.sv \
+		-CFLAGS -I../$(PKG) $(PKG)/reg_api.c \
+		-CFLAGS -I../c_code ../c_code/spi_int_test.c \
+		../c_code ../c_code/spi_c_poll_test.c \
+		-CFLAGS -DUSE_VCS
+
+
+
+run:
+	./simv +UVM_TESTNAME=spi_c_int_test 
+	./simv +UVM_TESTNAME=spi_c_poll_test 
+
+clean:
+	@rm -rf work transcript *~ vsim.wlf *.log *.tgz *.h
+	@rm -rf `ls | grep -v Makefile`
+
+tar:
+	@(cp README.txt ../../.; cd $(TAR_PATH);\
+	tar -zcf uvm_c_stimulus_bl_example.tgz \
+	c_stimulus/block_level_example/agents \
+	c_stimulus/block_level_example/rtl \
+	c_stimulus/block_level_example/uvm_tb \
+	c_stimulus/block_level_example/c_code \
+	c_stimulus/c_stimulus_pkg \
+	c_stimulus/block_level_example/sim/Makefile \
+	c_stimulus/README.txt)
+
